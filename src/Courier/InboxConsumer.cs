@@ -88,7 +88,13 @@ public sealed class InboxConsumer(NpgsqlDataSource dataSource, ConsumerOptions o
         };
         options.Configure?.Invoke(config);
         using var consumer = new ConsumerBuilder<string, string>(config)
-            .SetPartitionsRevokedHandler((c, _) => CommitStored(c))
+            .SetPartitionsRevokedHandler((c, _) =>
+            {
+                if (!_killed)
+                {
+                    CommitStored(c);
+                }
+            })
             .Build();
         consumer.Subscribe(options.Topics);
         var lastCommit = DateTime.UtcNow;
