@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore Courier.slnx
+
+      - name: Build (warnings are errors)
+        run: dotnet build Courier.slnx -c Release --no-restore
+
+      - name: Test
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: dotnet test --solution Courier.slnx -c Release --no-build
+
+      - name: Vulnerable packages (direct and transitive)
+        run: |
+          dotnet list Courier.slnx package --vulnerable --include-transitive 2>&1 | tee vulnerabilities.txt
+          if grep -q "has the following vulnerable packages" vulnerabilities.txt; then echo "::error::vulnerable packages found"; exit 1; fi
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t courier-ledger .

@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: public.ecr.aws/docker/library/postgres:17
+    environment:
+      POSTGRES_PASSWORD: courier
+      POSTGRES_DB: courier
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d courier"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.3.11
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --memory=512M
+      - --overprovisioned
+      - --node-id=0
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr=PLAINTEXT://redpanda:9092
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  ledger:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    environment:
+      Ledger__ConnectionString: "Host=postgres;Username=postgres;Password=courier;Database=courier"
+      Ledger__Kafka__BootstrapServers: "redpanda:9092"
+      Ledger__ApiKey: "${COURIER_API_KEY:-change-me-0123456789}"
+    ports:
+      - "8080:8080"
