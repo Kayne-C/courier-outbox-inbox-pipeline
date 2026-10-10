@@ -161,6 +161,7 @@ public class PipelineTests(InfraFixture fixture)
         }
 
         var first = env.NewConsumer(Recording(), b => b.AutoCommitIntervalMs = 60_000);
+        first.SkipOffsetStore = () => true;
         first.Start();
         Assert.True(await env.UntilAsync(async () => await env.ScalarAsync<long>("SELECT count(*) FROM received") >= 100, Patience));
         await first.KillAsync();

@@ -47,6 +47,8 @@ public sealed class InboxConsumer(NpgsqlDataSource dataSource, ConsumerOptions o
 
     public long DeadLettered => Interlocked.Read(ref _deadLettered);
 
+    public Func<bool>? SkipOffsetStore { get; set; }
+
     public void Start() => _loop ??= Task.Factory.StartNew(Loop, TaskCreationOptions.LongRunning).Unwrap();
 
     public async Task StopAsync()
@@ -115,9 +117,12 @@ public sealed class InboxConsumer(NpgsqlDataSource dataSource, ConsumerOptions o
                     }
 
                     await ProcessBatchAsync(batch);
-                    foreach (var result in batch)
+                    if (SkipOffsetStore?.Invoke() != true)
                     {
-                        consumer.StoreOffset(result);
+                        foreach (var result in batch)
+                        {
+                            consumer.StoreOffset(result);
+                        }
                     }
                 }
 
