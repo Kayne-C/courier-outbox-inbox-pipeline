@@ -170,7 +170,7 @@ public class PipelineTests(InfraFixture fixture)
         var second = env.NewConsumer(Recording());
         second.Start();
 
-        Assert.True(await env.UntilAsync(async () => await env.ScalarAsync<long>("SELECT count(*) FROM received") == 300, Patience));
+        Assert.True(await env.UntilAsync(() => Task.FromResult(second.Processed + second.Duplicates >= 300), Patience));
         await Task.Delay(500);
         Assert.Equal(300L, await env.ScalarAsync<long>("SELECT count(*) FROM received"));
         Assert.Equal(300L, await env.ScalarAsync<long>("SELECT count(DISTINCT message_id) FROM received"));
